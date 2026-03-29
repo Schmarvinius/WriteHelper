@@ -1,0 +1,19 @@
+{
+  "name": "write-helper",
+  "version": "1.0.0",
+  "description": "CLI tool to improve, correct, and translate text using SAP AI Core",
+  "type": "module",
+  "bin": {
+    "wh": "./src/index.js"
+  },
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@sap-ai-sdk/orchestration": "^1",
+    "commander": "^13"
+  }
+}
