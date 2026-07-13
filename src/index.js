@@ -92,33 +92,50 @@ async function run(systemPrompt, userText, model) {
   return data.choices[0].message.content;
 }
 
-const IMPROVE_SYSTEM_PROMPT =
-  'You are a professional writing assistant. Your task is to improve, correct, and rewrite the given text.\n\n' +
-  'Rules:\n' +
-  '- Fix grammar, spelling, and punctuation errors\n' +
-  '- Improve clarity and readability\n' +
-  '- Do NOT change the tone or voice of the text. If it is casual, keep it casual. If it is formal, keep it formal. Do not make it more formal or casual than it already is\n' +
-  '- Never use em dashes. Use commas, semicolons, periods, or parentheses instead\n' +
-  '- Do not add new information or change the meaning\n' +
-  '- Output ONLY the improved text, nothing else. No explanations, no quotes, no prefixes';
+const DEFAULT_PROMPTS = {
+  improve:
+    'You are a professional writing assistant. Your task is to improve, correct, and rewrite the given text.\n\n' +
+    'Rules:\n' +
+    '- Fix grammar, spelling, and punctuation errors\n' +
+    '- Improve clarity and readability\n' +
+    '- Do NOT change the tone or voice of the text. If it is casual, keep it casual. If it is formal, keep it formal. Do not make it more formal or casual than it already is\n' +
+    '- Never use em dashes. Use commas, semicolons, periods, or parentheses instead\n' +
+    '- Do not add new information or change the meaning\n' +
+    '- Output ONLY the improved text, nothing else. No explanations, no quotes, no prefixes',
 
-const EXTEND_SYSTEM_PROMPT =
-  'You are a professional writing assistant. Your task is to elaborate and expand on the given text, making it longer and more detailed.\n\n' +
-  'Rules:\n' +
-  '- Keep the same message, meaning, and intent\n' +
-  '- Match the original tone and voice exactly. Do NOT change the tone\n' +
-  '- Add more detail, examples, or supporting points where appropriate\n' +
-  '- Never use em dashes. Use commas, semicolons, periods, or parentheses instead\n' +
-  '- Output ONLY the expanded text, nothing else. No explanations, no quotes, no prefixes';
+  extend:
+    'You are a professional writing assistant. Your task is to elaborate and expand on the given text, making it longer and more detailed.\n\n' +
+    'Rules:\n' +
+    '- Keep the same message, meaning, and intent\n' +
+    '- Match the original tone and voice exactly. Do NOT change the tone\n' +
+    '- Add more detail, examples, or supporting points where appropriate\n' +
+    '- Never use em dashes. Use commas, semicolons, periods, or parentheses instead\n' +
+    '- Output ONLY the expanded text, nothing else. No explanations, no quotes, no prefixes',
 
-const CONTINUE_SYSTEM_PROMPT =
-  'You are a professional writing assistant. Your task is to continue writing from where the given text left off.\n\n' +
-  'Rules:\n' +
-  '- Continue naturally from the end of the text\n' +
-  '- Match the original tone, voice, and style exactly. Do NOT change the tone\n' +
-  '- Stay on topic and maintain coherence with the original text\n' +
-  '- Never use em dashes. Use commas, semicolons, periods, or parentheses instead\n' +
-  '- Output ONLY the continuation (new text), nothing else. No explanations, no quotes, no prefixes';
+  continue:
+    'You are a professional writing assistant. Your task is to continue writing from where the given text left off.\n\n' +
+    'Rules:\n' +
+    '- Continue naturally from the end of the text\n' +
+    '- Match the original tone, voice, and style exactly. Do NOT change the tone\n' +
+    '- Stay on topic and maintain coherence with the original text\n' +
+    '- Never use em dashes. Use commas, semicolons, periods, or parentheses instead\n' +
+    '- Output ONLY the continuation (new text), nothing else. No explanations, no quotes, no prefixes',
+
+  translate:
+    'You are a professional translator. Translate the given text to the target language.\n\n' +
+    'Rules:\n' +
+    '- Produce a natural, fluent translation, not a word-for-word literal one\n' +
+    '- Preserve the original tone and register\n' +
+    '- Never use em dashes. Use commas, semicolons, periods, or parentheses instead\n' +
+    '- Output ONLY the translated text, nothing else. No explanations, no quotes, no prefixes'
+};
+
+function resolvePrompt(command, flagValue) {
+  if (flagValue) return flagValue;
+  const config = loadConfig();
+  if (config?.prompts?.[command]) return config.prompts[command];
+  return DEFAULT_PROMPTS[command];
+}
 
 const program = new Command();
 
@@ -132,9 +149,11 @@ program
   .description('Improve, correct, and rewrite text while preserving tone')
   .argument('<text>', 'text to improve')
   .option('-m, --model <name>', 'model to use')
+  .option('-s, --system-prompt <prompt>', 'override the system prompt')
   .action(async (text, opts) => {
     try {
-      const result = await run(IMPROVE_SYSTEM_PROMPT, text, opts.model);
+      const systemPrompt = resolvePrompt('improve', opts.systemPrompt);
+      const result = await run(systemPrompt, text, opts.model);
       console.log(result);
     } catch (err) {
       console.error('Error:', err.message);
@@ -148,15 +167,26 @@ program
   .argument('<text>', 'text to translate')
   .requiredOption('-l, --lang <code>', 'target language (e.g. de, fr, es)')
   .option('-m, --model <name>', 'model to use')
+  .option('-s, --system-prompt <prompt>', 'override the system prompt')
   .action(async (text, opts) => {
     try {
-      const systemPrompt =
-        `You are a professional translator. Translate the given text to ${opts.lang}.\n\n` +
-        'Rules:\n' +
-        '- Produce a natural, fluent translation, not a word-for-word literal one\n' +
-        '- Preserve the original tone and register\n' +
-        '- Never use em dashes. Use commas, semicolons, periods, or parentheses instead\n' +
-        '- Output ONLY the translated text, nothing else. No explanations, no quotes, no prefixes';
+      let systemPrompt;
+      if (opts.systemPrompt) {
+        systemPrompt = opts.systemPrompt;
+      } else {
+        const config = loadConfig();
+        if (config?.prompts?.translate) {
+          systemPrompt = config.prompts.translate.replace('the target language', opts.lang);
+        } else {
+          systemPrompt =
+            `You are a professional translator. Translate the given text to ${opts.lang}.\n\n` +
+            'Rules:\n' +
+            '- Produce a natural, fluent translation, not a word-for-word literal one\n' +
+            '- Preserve the original tone and register\n' +
+            '- Never use em dashes. Use commas, semicolons, periods, or parentheses instead\n' +
+            '- Output ONLY the translated text, nothing else. No explanations, no quotes, no prefixes';
+        }
+      }
       const result = await run(systemPrompt, text, opts.model);
       console.log(result);
     } catch (err) {
@@ -170,9 +200,11 @@ program
   .description('Elaborate and expand text to make it longer and more detailed')
   .argument('<text>', 'text to extend')
   .option('-m, --model <name>', 'model to use')
+  .option('-s, --system-prompt <prompt>', 'override the system prompt')
   .action(async (text, opts) => {
     try {
-      const result = await run(EXTEND_SYSTEM_PROMPT, text, opts.model);
+      const systemPrompt = resolvePrompt('extend', opts.systemPrompt);
+      const result = await run(systemPrompt, text, opts.model);
       console.log(result);
     } catch (err) {
       console.error('Error:', err.message);
@@ -185,9 +217,11 @@ program
   .description('Continue writing from where the text left off')
   .argument('<text>', 'text to continue from')
   .option('-m, --model <name>', 'model to use')
+  .option('-s, --system-prompt <prompt>', 'override the system prompt')
   .action(async (text, opts) => {
     try {
-      const result = await run(CONTINUE_SYSTEM_PROMPT, text, opts.model);
+      const systemPrompt = resolvePrompt('continue', opts.systemPrompt);
+      const result = await run(systemPrompt, text, opts.model);
       console.log(result);
     } catch (err) {
       console.error('Error:', err.message);
@@ -226,6 +260,66 @@ program
     } catch (err) {
       console.error('Error:', err.message);
       process.exit(1);
+    }
+  });
+
+const VALID_COMMANDS = Object.keys(DEFAULT_PROMPTS);
+
+const prompt = program
+  .command('prompt')
+  .description('Manage custom system prompts for commands');
+
+prompt
+  .command('show')
+  .description('Show the active system prompt for a command')
+  .argument('<command>', `command name (${VALID_COMMANDS.join(', ')})`)
+  .action((cmd) => {
+    if (!VALID_COMMANDS.includes(cmd)) {
+      console.error(`Unknown command: "${cmd}". Valid commands: ${VALID_COMMANDS.join(', ')}`);
+      process.exit(1);
+    }
+    const config = loadConfig();
+    if (config?.prompts?.[cmd]) {
+      console.log(`[custom] ${config.prompts[cmd]}`);
+    } else {
+      console.log(`[default] ${DEFAULT_PROMPTS[cmd]}`);
+    }
+  });
+
+prompt
+  .command('set')
+  .description('Set a custom system prompt for a command')
+  .argument('<command>', `command name (${VALID_COMMANDS.join(', ')})`)
+  .argument('<prompt>', 'the custom system prompt text')
+  .action((cmd, promptText) => {
+    if (!VALID_COMMANDS.includes(cmd)) {
+      console.error(`Unknown command: "${cmd}". Valid commands: ${VALID_COMMANDS.join(', ')}`);
+      process.exit(1);
+    }
+    const existing = loadConfig() || {};
+    const prompts = existing.prompts || {};
+    prompts[cmd] = promptText;
+    saveConfig({ ...existing, prompts });
+    console.log(`Custom prompt saved for: ${cmd}`);
+  });
+
+prompt
+  .command('reset')
+  .description('Reset a command back to its built-in default prompt')
+  .argument('<command>', `command name (${VALID_COMMANDS.join(', ')})`)
+  .action((cmd) => {
+    if (!VALID_COMMANDS.includes(cmd)) {
+      console.error(`Unknown command: "${cmd}". Valid commands: ${VALID_COMMANDS.join(', ')}`);
+      process.exit(1);
+    }
+    const existing = loadConfig() || {};
+    if (existing.prompts?.[cmd]) {
+      delete existing.prompts[cmd];
+      if (Object.keys(existing.prompts).length === 0) delete existing.prompts;
+      saveConfig(existing);
+      console.log(`Prompt for "${cmd}" reset to default.`);
+    } else {
+      console.log(`"${cmd}" is already using the default prompt.`);
     }
   });
 
