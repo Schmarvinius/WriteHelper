@@ -6,6 +6,8 @@ import { registerTextCommands } from './commands/text.js';
 import { registerConfigCommand } from './commands/config.js';
 import { registerModelCommands } from './commands/model.js';
 import { registerPromptCommands } from './commands/prompt.js';
+import { registerCommitCommand } from './commands/commit.js';
+import { registerCompletionCommand } from './commands/completion.js';
 
 // Load user-supplied providers from ~/.wh/providers/
 await loadUserProviders();
@@ -19,8 +21,10 @@ program
 
 // Register all command groups
 registerTextCommands(program);
+registerCommitCommand(program);
 registerConfigCommand(program);
 registerModelCommands(program);
 registerPromptCommands(program);
+registerCompletionCommand(program);
 
 program.parse();
