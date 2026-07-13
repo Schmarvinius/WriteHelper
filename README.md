@@ -2,6 +2,32 @@
 
 A CLI tool to improve, translate, extend, and continue text using any OpenAI-compatible LLM proxy.
 
+## Table of Contents
+
+<!-- TOC GFM -->
+
+* [Prerequisites](#prerequisites)
+* [Install](#install)
+* [Uninstall](#uninstall)
+* [Configuration](#configuration)
+  * [Interactive setup](#interactive-setup)
+  * [Import from environment variables](#import-from-environment-variables)
+  * [Quick start with hai proxy](#quick-start-with-hai-proxy)
+* [Usage](#usage)
+  * [Commands](#commands)
+  * [Options](#options)
+  * [Examples](#examples)
+  * [Model management](#model-management)
+  * [Prompt customization](#prompt-customization)
+* [Available Models](#available-models)
+* [Custom Providers](#custom-providers)
+  * [Writing a provider](#writing-a-provider)
+  * [Using a custom provider](#using-a-custom-provider)
+* [Config File](#config-file)
+* [License](#license)
+
+<!-- /TOC -->
+
 ## Prerequisites
 
 - Node.js >= 20
@@ -35,6 +61,7 @@ wh config
 ```
 
 You will be prompted for:
+
 - **Base URL** — your proxy's chat completions endpoint (default: `http://localhost:6655/litellm/v1`)
 - **API Key** — the key for authenticating with the proxy
 
@@ -69,24 +96,24 @@ wh <command> [options] "your text"
 
 ### Commands
 
-| Command     | Description                                      |
-|-------------|--------------------------------------------------|
-| `improve`   | Fix grammar, spelling, and clarity (keeps tone)  |
-| `translate` | Translate text to a target language               |
-| `extend`    | Elaborate and expand text with more detail        |
-| `continue`  | Continue writing from where the text left off     |
-| `config`    | Configure LLM proxy connection                   |
-| `model`     | Manage the default model (`list`, `get`, `set`)  |
+| Command     | Description                                           |
+| ----------- | ----------------------------------------------------- |
+| `improve`   | Fix grammar, spelling, and clarity (keeps tone)       |
+| `translate` | Translate text to a target language                   |
+| `extend`    | Elaborate and expand text with more detail            |
+| `continue`  | Continue writing from where the text left off         |
+| `config`    | Configure LLM proxy connection                        |
+| `model`     | Manage the default model (`list`, `get`, `set`)       |
 | `prompt`    | Manage custom system prompts (`show`, `set`, `reset`) |
 
 ### Options
 
-| Option                       | Applies to   | Description                          | Default                          |
-|------------------------------|--------------|--------------------------------------|----------------------------------|
-| `-m, --model <name>`         | text commands| Model to use                         | `anthropic--claude-sonnet-latest` |
-| `-s, --system-prompt <text>` | text commands| One-off system prompt override       |                                  |
-| `-l, --lang <code>`          | `translate`  | Target language (e.g. `de`, `fr`)    | required                         |
-| `-e, --env`                  | `config`     | Import credentials from env vars     |                                  |
+| Option                       | Applies to    | Description                       | Default                           |
+| ---------------------------- | ------------- | --------------------------------- | --------------------------------- |
+| `-m, --model <name>`         | text commands | Model to use                      | `anthropic--claude-sonnet-latest` |
+| `-s, --system-prompt <text>` | text commands | One-off system prompt override    |                                   |
+| `-l, --lang <code>`          | `translate`   | Target language (e.g. `de`, `fr`) | required                          |
+| `-e, --env`                  | `config`      | Import credentials from env vars  |                                   |
 
 ### Examples
 
@@ -160,15 +187,15 @@ Create a file at `~/.wh/providers/<name>.js` that exports a default object imple
 
 ```js
 export default {
-  name: 'my-provider',
-  displayName: 'My Custom Provider',
+  name: "my-provider",
+  displayName: "My Custom Provider",
 
   // Required: perform a chat completion, return the result string
   async chat({ systemPrompt, userText, model, settings }) {
-    const res = await fetch(settings.baseUrl + '/completions', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${settings.apiKey}` },
-      body: JSON.stringify({ model, prompt: userText, system: systemPrompt })
+    const res = await fetch(settings.baseUrl + "/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${settings.apiKey}` },
+      body: JSON.stringify({ model, prompt: userText, system: systemPrompt }),
     });
     const data = await res.json();
     return data.result;
@@ -176,18 +203,22 @@ export default {
 
   // Optional: list available model IDs
   async listModels({ settings }) {
-    const res = await fetch(settings.baseUrl + '/models', {
-      headers: { 'Authorization': `Bearer ${settings.apiKey}` }
+    const res = await fetch(settings.baseUrl + "/models", {
+      headers: { Authorization: `Bearer ${settings.apiKey}` },
     });
     const data = await res.json();
-    return data.models.map(m => m.id);
+    return data.models.map((m) => m.id);
   },
 
   // Optional: fields prompted by `wh config --provider my-provider`
   configSchema: [
-    { key: 'baseUrl', prompt: 'Base URL', default: 'https://api.example.com/v1' },
-    { key: 'apiKey', prompt: 'API Key', secret: true, required: true }
-  ]
+    {
+      key: "baseUrl",
+      prompt: "Base URL",
+      default: "https://api.example.com/v1",
+    },
+    { key: "apiKey", prompt: "API Key", secret: true, required: true },
+  ],
 };
 ```
 
@@ -225,12 +256,12 @@ Configuration is stored at `~/.wh/config.json`:
 }
 ```
 
-| Field       | Required | Description                                       |
-|-------------|----------|---------------------------------------------------|
-| `provider`  | no       | Active provider name (default: `openai`)          |
-| `providers` | yes      | Per-provider settings (baseUrl, apiKey, etc.)     |
+| Field       | Required | Description                                                     |
+| ----------- | -------- | --------------------------------------------------------------- |
+| `provider`  | no       | Active provider name (default: `openai`)                        |
+| `providers` | yes      | Per-provider settings (baseUrl, apiKey, etc.)                   |
 | `model`     | no       | Default model (falls back to `anthropic--claude-sonnet-latest`) |
-| `prompts`   | no       | Per-command custom system prompts                 |
+| `prompts`   | no       | Per-command custom system prompts                               |
 
 > **Note:** The old flat config format (`{ baseUrl, apiKey, ... }`) is automatically migrated on first use. No manual changes required.
 
