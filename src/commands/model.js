@@ -1,5 +1,6 @@
 import { loadConfig, saveConfig, DEFAULT_MODEL } from '../config.js';
 import { listModels } from '../core.js';
+import { updateModelsCache } from './completion.js';
 
 /**
  * Register model management commands on the program.
@@ -18,6 +19,8 @@ export function registerModelCommands(program) {
         if (models.length === 0) {
           console.log('No models available.');
         } else {
+          // Cache models for shell completion
+          updateModelsCache(models);
           console.log('Available models:\n');
           for (const id of models) {
             console.log(`  ${id}`);

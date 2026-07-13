@@ -35,10 +35,29 @@ export const DEFAULT_PROMPTS = {
     '- Produce a natural, fluent translation, not a word-for-word literal one\n' +
     '- Preserve the original tone and register\n' +
     '- Never use em dashes. Use commas, semicolons, periods, or parentheses instead\n' +
-    '- Output ONLY the translated text, nothing else. No explanations, no quotes, no prefixes'
+    '- Output ONLY the translated text, nothing else. No explanations, no quotes, no prefixes',
+
+  commit:
+    'You are a git commit message generator. Given a diff of staged changes, write a concise and descriptive commit message.\n\n' +
+    'Rules:\n' +
+    '- First line: short summary, max 72 characters, imperative mood (e.g. "Add", "Fix", "Update")\n' +
+    '- If the change is non-trivial, add a blank line followed by a longer description\n' +
+    '- Focus on WHAT changed and WHY, not HOW\n' +
+    '- Do not repeat file names unless they add clarity\n' +
+    '- Output ONLY the commit message, nothing else. No explanations, no quotes, no prefixes',
+
+  'commit-conventional':
+    'You are a git commit message generator using the Conventional Commits format. Given a diff of staged changes, write a commit message.\n\n' +
+    'Rules:\n' +
+    '- First line format: <type>(<optional scope>): <description>\n' +
+    '- Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore\n' +
+    '- Description: imperative mood, max 72 chars total for first line\n' +
+    '- If the change is non-trivial, add a blank line followed by a longer description\n' +
+    '- Focus on WHAT changed and WHY, not HOW\n' +
+    '- Output ONLY the commit message, nothing else. No explanations, no quotes, no prefixes'
 };
 
-export const VALID_COMMANDS = Object.keys(DEFAULT_PROMPTS);
+export const VALID_COMMANDS = ['improve', 'extend', 'continue', 'translate', 'commit', 'commit-conventional'];
 
 /**
  * Resolve the system prompt for a command.
