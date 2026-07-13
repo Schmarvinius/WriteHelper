@@ -24,8 +24,8 @@ async function runTextCommand({ command, textArg, opts, buildSystemPrompt }) {
       systemPrompt += `\n\nAdditional context: ${opts.context}`;
     }
 
-    // Run through the LLM
-    const result = await run(systemPrompt, text, opts.model);
+    // Run through the LLM (with command name for history logging)
+    const result = await run(systemPrompt, text, opts.model, { command });
 
     // Handle output
     await writeOutput(result, {
