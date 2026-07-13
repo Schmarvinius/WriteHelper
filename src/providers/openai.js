@@ -35,7 +35,10 @@ export default {
 
     if (!res.ok) {
       const body = await res.text();
-      throw new Error(`API error (${res.status}): ${body}`);
+      const err = new Error(`API error (${res.status}): ${body}`);
+      err.status = res.status;
+      err.retryAfter = res.headers.get('retry-after');
+      throw err;
     }
 
     const data = await res.json();
@@ -54,7 +57,10 @@ export default {
 
     if (!res.ok) {
       const body = await res.text();
-      throw new Error(`API error (${res.status}): ${body}`);
+      const err = new Error(`API error (${res.status}): ${body}`);
+      err.status = res.status;
+      err.retryAfter = res.headers.get('retry-after');
+      throw err;
     }
 
     const data = await res.json();
