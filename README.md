@@ -108,12 +108,17 @@ wh <command> [options] "your text"
 
 ### Options
 
-| Option                       | Applies to    | Description                       | Default                           |
-| ---------------------------- | ------------- | --------------------------------- | --------------------------------- |
-| `-m, --model <name>`         | text commands | Model to use                      | `anthropic--claude-sonnet-latest` |
-| `-s, --system-prompt <text>` | text commands | One-off system prompt override    |                                   |
-| `-l, --lang <code>`          | `translate`   | Target language (e.g. `de`, `fr`) | required                          |
-| `-e, --env`                  | `config`      | Import credentials from env vars  |                                   |
+| Option                       | Applies to    | Description                                | Default                           |
+| ---------------------------- | ------------- | ------------------------------------------ | --------------------------------- |
+| `-m, --model <name>`         | text commands | Model to use                               | `anthropic--claude-sonnet-latest` |
+| `-s, --system-prompt <text>` | text commands | One-off system prompt override             |                                   |
+| `-f, --file <path>`          | text commands | Read input text from a file                |                                   |
+| `-o, --output <path>`        | text commands | Write result to a file                     |                                   |
+| `-c, --clipboard`            | text commands | Read from and write to clipboard           |                                   |
+| `--context <text>`           | text commands | Additional context for the LLM             |                                   |
+| `-q, --quiet`                | text commands | Suppress stdout (use with `-o` or `-c`)    |                                   |
+| `-l, --lang <code>`          | `translate`   | Target language (e.g. `de`, `fr`)          | required                          |
+| `-e, --env`                  | `config`      | Import credentials from env vars           |                                   |
 
 ### Examples
 
@@ -136,8 +141,28 @@ wh improve --model=gpt-4.1 "some text with erors"
 # One-off system prompt override
 wh improve --system-prompt "Rewrite as a haiku" "The weather is nice today"
 
-# Pipe output to clipboard (macOS)
-wh improve "some text" | pbcopy
+# Pipe from stdin
+cat essay.txt | wh improve
+echo "hello world" | wh translate --lang=de
+
+# Read from a file
+wh improve -f ./draft.md
+
+# Write result to a file
+wh improve "some text" -o result.txt
+
+# Write to file without printing to terminal
+wh improve -f input.txt -o output.txt -q
+
+# Clipboard workflow: read from clipboard, improve, write back
+wh improve -c
+
+# Provide additional context
+wh improve "i have much experience" --context "formal job application cover letter"
+wh translate --lang=ja "See you tomorrow" --context "casual message to a friend"
+
+# Combine options
+cat draft.md | wh improve --context "academic paper" -o improved.md
 ```
 
 ### Model management

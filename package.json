@@ -28,6 +28,7 @@
     "node": ">=20"
   },
   "dependencies": {
+    "clipboardy": "^5.3.1",
     "commander": "^13"
   }
 }
