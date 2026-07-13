@@ -24,15 +24,37 @@ function saveConfig(config) {
 function getConfig() {
   const config = loadConfig();
   if (!config) {
-    console.error('No configuration found. Run "wh config" first.');
+    console.error(
+      'No configuration found.\n\n' +
+      'Run "wh config" to set up your LLM proxy connection.\n' +
+      'You will need a base URL and API key from your proxy (e.g. hai proxy).\n\n' +
+      'Quick start:\n' +
+      '  1. Start your proxy:  hai proxy start\n' +
+      '  2. Configure wh:      wh config\n' +
+      '  3. Use it:            wh improve "your text here"'
+    );
     process.exit(1);
   }
   if (config.serviceKey) {
-    console.error('Config format has changed. Please re-run "wh config" to set up hai proxy credentials.');
+    console.error(
+      'Config format has changed (old SAP AI Core service key detected).\n\n' +
+      'WriteHelper now uses an OpenAI-compatible LLM proxy instead of SAP AI Core directly.\n\n' +
+      'To fix this, run:\n\n' +
+      '  wh config\n\n' +
+      'You will be prompted for:\n' +
+      `  - Base URL (default: ${DEFAULT_BASE_URL})\n` +
+      '  - API Key (from your LLM proxy, e.g. hai proxy)\n\n' +
+      'If you use the hai proxy, start it with "hai proxy start" and use the\n' +
+      'API key shown in its dashboard.'
+    );
     process.exit(1);
   }
   if (!config.apiKey) {
-    console.error('No API key configured. Run "wh config" first.');
+    console.error(
+      'No API key configured.\n\n' +
+      'Run "wh config" and provide the API key from your LLM proxy.\n' +
+      'If using hai proxy, the key is shown in the dashboard when you run "hai proxy start".'
+    );
     process.exit(1);
   }
   return {
