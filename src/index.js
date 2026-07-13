@@ -8,6 +8,8 @@ import { createInterface } from 'node:readline/promises';
 
 const CONFIG_DIR = join(homedir(), '.wh');
 const CONFIG_FILE = join(CONFIG_DIR, 'config.json');
+const DEFAULT_BASE_URL = 'http://localhost:6655/litellm/v1';
+const DEFAULT_MODEL = 'anthropic--claude-sonnet-latest';
 
 function loadConfig() {
   if (!existsSync(CONFIG_FILE)) return null;
@@ -19,22 +21,53 @@ function saveConfig(config) {
   writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2) + '\n');
 }
 
-function ensureCredentials() {
-  if (process.env.AICORE_SERVICE_KEY) return;
+function getConfig() {
   const config = loadConfig();
-  if (!config?.serviceKey) {
-    console.error('No AI Core credentials configured. Run "wh config" first or set AICORE_SERVICE_KEY env variable.');
+  if (!config) {
+    console.error('No configuration found. Run "wh config" first.');
     process.exit(1);
   }
-  process.env.AICORE_SERVICE_KEY = JSON.stringify(config.serviceKey);
+  if (config.serviceKey) {
+    console.error('Config format has changed. Please re-run "wh config" to set up hai proxy credentials.');
+    process.exit(1);
+  }
+  if (!config.apiKey) {
+    console.error('No API key configured. Run "wh config" first.');
+    process.exit(1);
+  }
+  return {
+    baseUrl: config.baseUrl || DEFAULT_BASE_URL,
+    apiKey: config.apiKey,
+    model: config.model || DEFAULT_MODEL
+  };
 }
 
-async function importOrchestrationClient() {
-  ensureCredentials();
-  const { setLogLevel } = await import('@sap-cloud-sdk/util');
-  setLogLevel('warn', 'context');
-  const { OrchestrationClient } = await import('@sap-ai-sdk/orchestration');
-  return OrchestrationClient;
+async function run(systemPrompt, userText, model) {
+  const { baseUrl, apiKey, model: defaultModel } = getConfig();
+  const selectedModel = model || defaultModel;
+
+  const res = await fetch(`${baseUrl}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model: selectedModel,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userText }
+      ]
+    })
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`API error (${res.status}): ${body}`);
+  }
+
+  const data = await res.json();
+  return data.choices[0].message.content;
 }
 
 const IMPROVE_SYSTEM_PROMPT =
@@ -65,36 +98,18 @@ const CONTINUE_SYSTEM_PROMPT =
   '- Never use em dashes. Use commas, semicolons, periods, or parentheses instead\n' +
   '- Output ONLY the continuation (new text), nothing else. No explanations, no quotes, no prefixes';
 
-async function run(systemPrompt, userText, model) {
-  const OrchestrationClient = await importOrchestrationClient();
-  const client = new OrchestrationClient({
-    llm: {
-      model_name: model
-    }
-  });
-
-  const response = await client.chatCompletion({
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userText }
-    ]
-  });
-
-  return response.getContent();
-}
-
 const program = new Command();
 
 program
   .name('wh')
-  .description('CLI tool to improve and translate text using SAP AI Core')
-  .version('1.0.0');
+  .description('CLI tool to improve and translate text using an OpenAI-compatible LLM proxy')
+  .version('1.1.0');
 
 program
   .command('improve')
   .description('Improve, correct, and rewrite text while preserving tone')
   .argument('<text>', 'text to improve')
-  .option('-m, --model <name>', 'model to use', 'gpt-4o')
+  .option('-m, --model <name>', 'model to use')
   .action(async (text, opts) => {
     try {
       const result = await run(IMPROVE_SYSTEM_PROMPT, text, opts.model);
@@ -110,7 +125,7 @@ program
   .description('Translate text to a target language')
   .argument('<text>', 'text to translate')
   .requiredOption('-l, --lang <code>', 'target language (e.g. de, fr, es)')
-  .option('-m, --model <name>', 'model to use', 'gpt-4o')
+  .option('-m, --model <name>', 'model to use')
   .action(async (text, opts) => {
     try {
       const systemPrompt =
@@ -132,7 +147,7 @@ program
   .command('extend')
   .description('Elaborate and expand text to make it longer and more detailed')
   .argument('<text>', 'text to extend')
-  .option('-m, --model <name>', 'model to use', 'gpt-4o')
+  .option('-m, --model <name>', 'model to use')
   .action(async (text, opts) => {
     try {
       const result = await run(EXTEND_SYSTEM_PROMPT, text, opts.model);
@@ -147,7 +162,7 @@ program
   .command('continue')
   .description('Continue writing from where the text left off')
   .argument('<text>', 'text to continue from')
-  .option('-m, --model <name>', 'model to use', 'gpt-4o')
+  .option('-m, --model <name>', 'model to use')
   .action(async (text, opts) => {
     try {
       const result = await run(CONTINUE_SYSTEM_PROMPT, text, opts.model);
@@ -160,34 +175,32 @@ program
 
 program
   .command('config')
-  .description('Configure AI Core credentials')
-  .option('-e, --env', 'import credentials from AICORE_SERVICE_KEY env variable')
+  .description('Configure LLM proxy connection')
+  .option('-e, --env', 'import from WH_API_KEY and WH_BASE_URL environment variables')
   .action(async (opts) => {
     try {
-      let serviceKey;
+      let baseUrl, apiKey;
       if (opts.env) {
-        if (!process.env.AICORE_SERVICE_KEY) {
-          console.error('AICORE_SERVICE_KEY environment variable is not set.');
+        apiKey = process.env.WH_API_KEY;
+        baseUrl = process.env.WH_BASE_URL || DEFAULT_BASE_URL;
+        if (!apiKey) {
+          console.error('WH_API_KEY environment variable is not set.');
           process.exit(1);
         }
-        serviceKey = JSON.parse(process.env.AICORE_SERVICE_KEY);
-        console.log('Imported credentials from AICORE_SERVICE_KEY.');
+        console.log('Imported credentials from environment variables.');
       } else {
         const rl = createInterface({ input: process.stdin, output: process.stdout });
-        const url = await rl.question('AI Core Service URL: ');
-        const clientid = await rl.question('Client ID: ');
-        const clientsecret = await rl.question('Client Secret: ');
-        const authUrl = await rl.question('Auth URL (token endpoint base): ');
+        baseUrl = await rl.question(`Base URL [${DEFAULT_BASE_URL}]: `) || DEFAULT_BASE_URL;
+        apiKey = await rl.question('API Key: ');
         rl.close();
-        serviceKey = {
-          serviceurls: { AI_API_URL: url },
-          clientid,
-          clientsecret,
-          url: authUrl
-        };
+        if (!apiKey) {
+          console.error('API key is required.');
+          process.exit(1);
+        }
       }
-      saveConfig({ serviceKey });
-      console.log(`Credentials saved to ${CONFIG_FILE}`);
+      const existing = loadConfig() || {};
+      saveConfig({ ...existing, baseUrl, apiKey });
+      console.log(`Configuration saved to ${CONFIG_FILE}`);
     } catch (err) {
       console.error('Error:', err.message);
       process.exit(1);
