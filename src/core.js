@@ -1,6 +1,15 @@
 import { getConfig, loadConfig } from './config.js';
 import { getProvider } from './providers/index.js';
 import { withRetry } from './retry.js';
+import { appendHistory } from './history.js';
+
+/**
+ * Check if history logging is enabled.
+ */
+function isHistoryEnabled() {
+  const config = loadConfig();
+  return config?.history !== false;
+}
 
 /**
  * Get the configured retry count.
@@ -22,6 +31,7 @@ function getRetries(noRetry) {
  * @param {string} [modelOverride] - Optional model override from --model flag
  * @param {object} [opts] - Additional options
  * @param {boolean} [opts.noRetry] - Disable retry for this invocation
+ * @param {string} [opts.command] - Command name for history logging
  * @returns {Promise<string>} The provider's response text
  */
 export async function run(systemPrompt, userText, modelOverride, opts = {}) {
@@ -30,10 +40,26 @@ export async function run(systemPrompt, userText, modelOverride, opts = {}) {
   const model = modelOverride || defaultModel;
   const retries = getRetries(opts.noRetry);
 
-  return withRetry(
+  const result = await withRetry(
     () => provider.chat({ systemPrompt, userText, model, settings }),
     { retries }
   );
+
+  // Log to history
+  if (isHistoryEnabled() && opts.command) {
+    try {
+      appendHistory({
+        command: opts.command,
+        input: userText,
+        output: result,
+        model
+      });
+    } catch {
+      // Silently ignore history write failures
+    }
+  }
+
+  return result;
 }
 
 /**

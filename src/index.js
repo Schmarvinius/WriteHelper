@@ -8,6 +8,7 @@ import { registerModelCommands } from './commands/model.js';
 import { registerPromptCommands } from './commands/prompt.js';
 import { registerCommitCommand } from './commands/commit.js';
 import { registerCompletionCommand } from './commands/completion.js';
+import { registerHistoryCommand } from './commands/history.js';
 
 // Load user-supplied providers from ~/.wh/providers/
 await loadUserProviders();
@@ -26,5 +27,6 @@ registerConfigCommand(program);
 registerModelCommands(program);
 registerPromptCommands(program);
 registerCompletionCommand(program);
+registerHistoryCommand(program);
 
 program.parse();
