@@ -150,14 +150,74 @@ Models depend on your LLM proxy. With the hai proxy, you typically have access t
 
 Run `wh model list` to see what's available on your proxy.
 
+## Custom Providers
+
+WriteHelper uses a pluggable provider architecture. By default it ships with an `openai` provider that works with any OpenAI-compatible API. You can add your own providers by dropping a `.js` file into `~/.wh/providers/`.
+
+### Writing a provider
+
+Create a file at `~/.wh/providers/<name>.js` that exports a default object implementing the provider interface:
+
+```js
+export default {
+  name: 'my-provider',
+  displayName: 'My Custom Provider',
+
+  // Required: perform a chat completion, return the result string
+  async chat({ systemPrompt, userText, model, settings }) {
+    const res = await fetch(settings.baseUrl + '/completions', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${settings.apiKey}` },
+      body: JSON.stringify({ model, prompt: userText, system: systemPrompt })
+    });
+    const data = await res.json();
+    return data.result;
+  },
+
+  // Optional: list available model IDs
+  async listModels({ settings }) {
+    const res = await fetch(settings.baseUrl + '/models', {
+      headers: { 'Authorization': `Bearer ${settings.apiKey}` }
+    });
+    const data = await res.json();
+    return data.models.map(m => m.id);
+  },
+
+  // Optional: fields prompted by `wh config --provider my-provider`
+  configSchema: [
+    { key: 'baseUrl', prompt: 'Base URL', default: 'https://api.example.com/v1' },
+    { key: 'apiKey', prompt: 'API Key', secret: true, required: true }
+  ]
+};
+```
+
+### Using a custom provider
+
+1. Drop the file into `~/.wh/providers/`
+2. Configure it:
+   ```bash
+   wh config --provider my-provider
+   ```
+3. Set it as the active provider in `~/.wh/config.json`:
+   ```json
+   { "provider": "my-provider" }
+   ```
+
+Malformed provider plugins produce a warning on stderr but never crash the CLI.
+
 ## Config File
 
 Configuration is stored at `~/.wh/config.json`:
 
 ```json
 {
-  "baseUrl": "http://localhost:6655/litellm/v1",
-  "apiKey": "your-api-key",
+  "provider": "openai",
+  "providers": {
+    "openai": {
+      "baseUrl": "http://localhost:6655/litellm/v1",
+      "apiKey": "your-api-key"
+    }
+  },
   "model": "anthropic--claude-sonnet-latest",
   "prompts": {
     "improve": "Optional custom prompt..."
@@ -165,12 +225,14 @@ Configuration is stored at `~/.wh/config.json`:
 }
 ```
 
-| Field     | Required | Description                                       |
-|-----------|----------|---------------------------------------------------|
-| `baseUrl` | yes      | OpenAI-compatible chat completions endpoint       |
-| `apiKey`  | yes      | Bearer token for the proxy                        |
-| `model`   | no       | Default model (falls back to `anthropic--claude-sonnet-latest`) |
-| `prompts` | no       | Per-command custom system prompts                 |
+| Field       | Required | Description                                       |
+|-------------|----------|---------------------------------------------------|
+| `provider`  | no       | Active provider name (default: `openai`)          |
+| `providers` | yes      | Per-provider settings (baseUrl, apiKey, etc.)     |
+| `model`     | no       | Default model (falls back to `anthropic--claude-sonnet-latest`) |
+| `prompts`   | no       | Per-command custom system prompts                 |
+
+> **Note:** The old flat config format (`{ baseUrl, apiKey, ... }`) is automatically migrated on first use. No manual changes required.
 
 ## License
 
